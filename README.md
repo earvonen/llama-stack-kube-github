@@ -1,5 +1,7 @@
 # Llama Stack on OpenShift (MiniMax + MCP)
 
+All resources in this overlay use the OpenShift/Kubernetes namespace **`agentic-demo`**.
+
 Kubernetes/OpenShift manifests to run [Llama Stack](https://llamastack.github.io/) with:
 
 - **Inference:** [MiniMax](https://www.minimax.io/) via the OpenAI-compatible API (`remote::openai`, provider id `minimax`).
@@ -20,7 +22,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 
 3. **MiniMax API key** from the [MiniMax platform](https://platform.minimax.io/).
 
-4. **MCP servers** for GitHub and OpenShift reachable from the `llamastack` namespace (ClusterIP Services, or routes outside the cluster). Use the URL shape your server expects (often `…/sse` for SSE; some images use streamable HTTP on a different path).
+4. **MCP servers** for GitHub and OpenShift reachable from the **`agentic-demo`** namespace (ClusterIP Services, or routes outside the cluster). Use the URL shape your server expects (often `…/sse` for SSE; some images use streamable HTTP on a different path).
 
 ## Repository layout
 
@@ -37,7 +39,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 ## Configure before deploy
 
 1. **`openshift/secret.yaml`**  
-   Set `stringData.minimax-api-key` to your real key. Prefer not committing secrets: create the Secret with `oc create secret generic llamastack-credentials --from-literal=minimax-api-key='…' -n llamastack` and remove `secret.yaml` from `kustomization.yaml` if you use that workflow.
+   Set `stringData.minimax-api-key` to your real key. Prefer not committing secrets: create the Secret with `oc create secret generic llamastack-credentials --from-literal=minimax-api-key='…' -n agentic-demo` and remove `secret.yaml` from `kustomization.yaml` if you use that workflow.
 
 2. **`openshift/configmap-mcp-endpoints.yaml`**  
    Replace the example URLs with the in-cluster DNS names (or external URLs) and ports for your GitHub and OpenShift MCP deployments. Paths must match each server’s transport (SSE vs other).
@@ -64,15 +66,15 @@ The operator creates a Service named **`llamastack-service`** (for CR `metadata.
 ## Verify
 
 ```bash
-oc get llamastackdistribution -n llamastack
-oc get pods,svc,route -n llamastack
-oc logs -n llamastack -l app=llama-stack --tail=100
+oc get llamastackdistribution -n agentic-demo
+oc get pods,svc,route -n agentic-demo
+oc logs -n agentic-demo -l app=llama-stack --tail=100
 ```
 
 When ready, obtain the public URL:
 
 ```bash
-oc get route llamastack -n llamastack -o jsonpath='{.spec.host}{"\n"}'
+oc get route llamastack -n agentic-demo -o jsonpath='{.spec.host}{"\n"}'
 ```
 
 The Llama Stack HTTP API listens on port **8321** inside the cluster. OpenAI-compatible clients typically use `https://<route-host>/v1` (see [OpenAI compatibility](https://llamastack.github.io/docs/providers/openai)).
@@ -90,7 +92,7 @@ Use a MiniMax model id in requests (for example `MiniMax-M2.7`); see [MiniMax Op
 
 | Symptom | Things to check |
 |--------|------------------|
-| CR not reconciling / no pods | Operator installed and watching your namespace; `oc describe llamastackdistribution llamastack -n llamastack`. |
+| CR not reconciling / no pods | Operator installed and watching your namespace; `oc describe llamastackdistribution llamastack -n agentic-demo`. |
 | MCP tools missing or errors | MCP pods running; URLs in `llamastack-mcp-endpoints` correct; network policies allow egress from Llama Stack to MCP Services. |
 | MiniMax auth errors | Secret key and `MINIMAX_BASE_URL`; MiniMax account and model access. |
 | SQLite / disk errors | PVC bound; `SQLITE_STORE_DIR` matches writable path under `/.llama` (set in the CR). |
