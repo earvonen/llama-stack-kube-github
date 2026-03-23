@@ -9,7 +9,8 @@ spec:
   replicas: 1
   server:
     distribution:
-      name: starter
+      # Using image skips the operator's built-in distribution name map (see README if you prefer name: starter).
+      image: docker.io/llamastack/distribution-starter:latest
     userConfig:
       configMapName: llamastack-server-config
     storage:

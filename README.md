@@ -49,7 +49,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 
 ## Deploy
 
-From the repository root:
+From the repository root, `-k` is the path to the directory that contains `kustomization.yaml` (here, the `openshift/` folder — not an OpenShift-specific flag).
 
 ```bash
 oc apply -k openshift
@@ -60,6 +60,8 @@ Equivalent preview:
 ```bash
 oc kustomize openshift
 ```
+
+If you are already inside `openshift/`, use `oc apply -k .` instead.
 
 The operator creates a Service named **`llamastack-service`** (for CR `metadata.name: llamastack`). The Route targets port name **`http`**.
 
@@ -92,6 +94,7 @@ Use a MiniMax model id in requests (for example `MiniMax-M2.7`); see [MiniMax Op
 
 | Symptom | Things to check |
 |--------|------------------|
+| `Distribution name not supported` (e.g. for `starter`) | The operator only accepts `spec.server.distribution.name` values baked into its embedded `distributions.json`. Older or custom builds may omit `starter`. This repo uses **`distribution.image`** (`docker.io/llamastack/distribution-starter:latest`) so reconciliation does not depend on that list. Alternatively upgrade the [operator](https://github.com/llamastack/llama-stack-k8s-operator/releases) to a release whose embedded distributions include `starter`, then you may switch to `name: starter` and remove `image`. |
 | CR not reconciling / no pods | Operator installed and watching your namespace; `oc describe llamastackdistribution llamastack -n agentic-demo`. |
 | MCP tools missing or errors | MCP pods running; URLs in `llamastack-mcp-endpoints` correct; network policies allow egress from Llama Stack to MCP Services. |
 | MiniMax auth errors | Secret key and `MINIMAX_BASE_URL`; MiniMax account and model access. |
