@@ -1,6 +1,9 @@
-# In-cluster GitHub MCP (HTTP transport): the upstream server expects Authorization: Bearer <PAT>
-# on each request. The nginx container injects the PAT from Secret github-mcp-pat; Llama Stack
-# calls nginx without a GitHub token.
+# In-cluster GitHub MCP (HTTP transport): github-mcp-server's HTTP mode reads the PAT from the
+# incoming Authorization header only — it does not use GITHUB_PERSONAL_ACCESS_TOKEN from the
+# environment for those requests (that env is for stdio mode). Llama Stack's connector URL has no
+# PAT, so nginx (this pod's injection layer) adds Bearer … from Secret github-mcp-pat before
+# proxying to github-mcp-server on :8082. The PAT is not "for nginx"; any header-injecting proxy
+# in the same role would need the Secret.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -41,6 +44,10 @@ spec:
       labels:
         app: github-mcp
     spec:
+      # OpenShift: random UID + often read-only root — envsubst must write conf.d; nginx needs a writable cache.
+      # fsGroup makes emptyDir volumes group-writable for the container UID.
+      securityContext:
+        fsGroup: 10001
       containers:
         - name: github-mcp-server
           image: ghcr.io/github/github-mcp-server:latest
@@ -49,10 +56,14 @@ spec:
             - containerPort: 8082
               protocol: TCP
         - name: nginx
-          image: nginx:1.27-alpine
+          image: nginxinc/nginx-unprivileged:1.27-alpine
           ports:
             - containerPort: 8080
               protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: GITHUB_PERSONAL_ACCESS_TOKEN
               valueFrom:
@@ -63,10 +74,22 @@ spec:
             - name: nginx-templates
               mountPath: /etc/nginx/templates
               readOnly: true
+            - name: nginx-conf-d
+              mountPath: /etc/nginx/conf.d
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
       volumes:
         - name: nginx-templates
           configMap:
             name: github-mcp-nginx-template
+        - name: nginx-conf-d
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

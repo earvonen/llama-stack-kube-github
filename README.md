@@ -98,6 +98,7 @@ Use a MiniMax model id in requests (for example `MiniMax-M2.7`); see [MiniMax Op
 
 - **Image pulls:** If your cluster cannot pull `docker.io/llamastack/distribution-starter`, mirror the image or add pull secrets and adjust the operator or distribution image settings per your org’s policy.
 - **Security context / SCC:** If the pod fails to start with permission errors, work with your cluster admin on the appropriate SCC and ServiceAccount (the operator creates a per-CR ServiceAccount by default).
+- **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts for `/etc/nginx/conf.d`, `/var/cache/nginx`, and `/var/run`, and `pod.spec.securityContext.fsGroup: 10001` so OpenShift’s arbitrary UID can write there. If the pod is rejected for `fsGroup` or supplemental groups, set `fsGroup` to a GID allowed for your namespace (see `oc describe namespace agentic-demo` / annotations). If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image in `github-mcp.yaml`.
 - **TLS:** The sample Route uses **edge** termination. For re-encrypt or passthrough, change `openshift/route.yaml` accordingly.
 - **Config updates:** Changing `openshift/config/config.yaml` and re-applying updates the generated ConfigMap; the operator’s ConfigMap hash annotation should roll the Deployment. If not, delete the pod to force a restart.
 
@@ -110,6 +111,7 @@ Use a MiniMax model id in requests (for example `MiniMax-M2.7`); see [MiniMax Op
 | MCP tools missing or errors | MCP pods running; URLs in `llamastack-mcp-endpoints` correct; network policies allow egress from Llama Stack to MCP Services. |
 | MiniMax auth errors | Secret key and `MINIMAX_BASE_URL`; MiniMax account and model access. |
 | SQLite / disk errors | PVC bound; `SQLITE_STORE_DIR` matches writable path under `/.llama` (set in the CR). |
+| `github-mcp` nginx: conf.d not writable / `client_temp` permission denied | OpenShift random UID vs read-only root; ensure you applied the `emptyDir` + `fsGroup` + `nginxinc/nginx-unprivileged` manifest. Adjust `fsGroup` if your SCC restricts it. |
 
 ## References
 
