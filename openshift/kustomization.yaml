@@ -11,6 +11,8 @@ resources:
   - secret.yaml
   - llamastackdistribution.yaml
   - route.yaml
+  - llama-stack-ui.yaml
+  - route-ui.yaml
 
 configMapGenerator:
   - name: llamastack-server-config

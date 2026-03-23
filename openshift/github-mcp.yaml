@@ -45,9 +45,10 @@ spec:
         app: github-mcp
     spec:
       # OpenShift: random UID + often read-only root — envsubst must write conf.d; nginx needs a writable cache.
-      # fsGroup makes emptyDir volumes group-writable for the container UID.
+      # fsGroup must fall in this namespace’s allowed range (e.g. annotation openshift.io/sa.scc.uid-range:
+      # "1000940000/10000" → use the range base as fsGroup, or match openshift.io/sa.scc.supplemental-groups).
       securityContext:
-        fsGroup: 10001
+        fsGroup: 1000940000
       containers:
         - name: github-mcp-server
           image: ghcr.io/github/github-mcp-server:latest

@@ -7,7 +7,7 @@ Kubernetes/OpenShift manifests to run [Llama Stack](https://llamastack.github.io
 - **Inference:** [MiniMax](https://www.minimax.io/) via the OpenAI-compatible API (`remote::openai`, provider id `minimax`).
 - **Tools:** MCP connectors for **GitHub** and **OpenShift**. This repo includes an optional in-cluster **GitHub MCP** Deployment (official `ghcr.io/github/github-mcp-server` in HTTP mode plus an nginx sidecar that injects a PAT from a **Secret**). You still supply your **OpenShift / Kubernetes MCP** endpoint separately in `configmap-mcp-endpoints.yaml`.
 
-The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-k8s-operator) reconciles a `LlamaStackDistribution` custom resource into a Deployment, Service, PVC, and related objects. This repository adds a Kustomize overlay, stack `config.yaml`, non-secret endpoint tuning, and an OpenShift `Route`.
+The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-k8s-operator) reconciles a `LlamaStackDistribution` custom resource into a Deployment, Service, PVC, and related objects. This repository adds a Kustomize overlay, stack `config.yaml`, non-secret endpoint tuning, OpenShift **Routes** for the API and for the **[Llama Stack UI](https://llamastack.github.io/docs/distributions/llama_stack_ui)** playground (`docker.io/llamastack/ui`).
 
 ## Prerequisites
 
@@ -35,7 +35,9 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 | `openshift/configmap-mcp-endpoints.yaml` | Non-secret values: `MCP_*` connector base URLs, `MINIMAX_BASE_URL`. |
 | `openshift/secret.yaml` | MiniMax `minimax-api-key` (replace placeholder before apply, or manage the Secret out of band). |
 | `openshift/llamastackdistribution.yaml` | `LlamaStackDistribution` CR (`starter` image, PVC under `/.llama`, env wiring). |
-| `openshift/route.yaml` | Edge TLS `Route` to Service `llamastack-service:8321`. |
+| `openshift/route.yaml` | Edge TLS `Route` to Service `llamastack-service` (API port 8321). |
+| `openshift/llama-stack-ui.yaml` | [Llama Stack UI](https://llamastack.github.io/docs/distributions/llama_stack_ui) playground: `Deployment` + `Service` `llamastack-ui` (`LLAMA_STACK_BACKEND_URL` → `http://llamastack-service:8321`). |
+| `openshift/route-ui.yaml` | Edge TLS `Route` to the UI Service (port 8322). |
 | `.gitignore` | Ignores local `_ref_*/` scratch directories. |
 
 ## Configure before deploy
@@ -84,10 +86,27 @@ oc get pods,svc,route -n agentic-demo
 oc logs -n agentic-demo -l app=llama-stack --tail=100
 ```
 
-When ready, obtain the public URL:
+**API Route** (Llama Stack HTTP/OpenAI-compatible):
 
 ```bash
 oc get route llamastack -n agentic-demo -o jsonpath='{.spec.host}{"\n"}'
+```
+
+**Playground (Llama Stack UI)** — open `https://<host>/` from:
+
+```bash
+oc get route llamastack-ui -n agentic-demo -o jsonpath='{.spec.host}{"\n"}'
+```
+
+The UI pod talks to the API **inside the cluster** (`http://llamastack-service:8321`), so you do not need browser CORS changes for that path.
+
+### NextAuth URL (after the UI Route exists)
+
+If you enable **GitHub OAuth** in the UI (`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`), set `NEXTAUTH_URL` to the **public HTTPS URL** of the UI Route (see [Llama Stack UI env docs](https://llamastack.github.io/docs/distributions/llama_stack_ui)):
+
+```bash
+HOST=$(oc get route llamastack-ui -n agentic-demo -o jsonpath='{.spec.host}')
+oc set env deployment/llamastack-ui -n agentic-demo NEXTAUTH_URL=https://$HOST
 ```
 
 The Llama Stack HTTP API listens on port **8321** inside the cluster. OpenAI-compatible clients typically use `https://<route-host>/v1` (see [OpenAI compatibility](https://llamastack.github.io/docs/providers/openai)).
@@ -98,7 +117,7 @@ Use a MiniMax model id in requests (for example `MiniMax-M2.7`); see [MiniMax Op
 
 - **Image pulls:** If your cluster cannot pull `docker.io/llamastack/distribution-starter`, mirror the image or add pull secrets and adjust the operator or distribution image settings per your org’s policy.
 - **Security context / SCC:** If the pod fails to start with permission errors, work with your cluster admin on the appropriate SCC and ServiceAccount (the operator creates a per-CR ServiceAccount by default).
-- **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts for `/etc/nginx/conf.d`, `/var/cache/nginx`, and `/var/run`, and `pod.spec.securityContext.fsGroup: 10001` so OpenShift’s arbitrary UID can write there. If the pod is rejected for `fsGroup` or supplemental groups, set `fsGroup` to a GID allowed for your namespace (see `oc describe namespace agentic-demo` / annotations). If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image in `github-mcp.yaml`.
+- **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts and `pod.spec.securityContext.fsGroup` set to **`1000940000`**, matching the **`agentic-demo`** namespace UID annotation `1000940000/10000` (first number = usable `fsGroup` / group for volume permissions). If your namespace uses a different range, run `oc get namespace agentic-demo -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}{"\n"}'` and set `fsGroup` in `github-mcp.yaml` to that range’s base (or a value allowed by `openshift.io/sa.scc.supplemental-groups`). If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image.
 - **TLS:** The sample Route uses **edge** termination. For re-encrypt or passthrough, change `openshift/route.yaml` accordingly.
 - **Config updates:** Changing `openshift/config/config.yaml` and re-applying updates the generated ConfigMap; the operator’s ConfigMap hash annotation should roll the Deployment. If not, delete the pod to force a restart.
 
