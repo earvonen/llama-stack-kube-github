@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamastack-mcp-endpoints
+  namespace: llamastack
+data:
+  # SSE (or streamable HTTP) base URLs for your MCP servers — adjust Service DNS names and ports.
+  MCP_GITHUB_SSE_URL: "http://github-mcp.llamastack.svc.cluster.local:8080/sse"
+  MCP_OPENSHIFT_SSE_URL: "http://kubernetes-mcp:8080/sse"
+  MINIMAX_BASE_URL: "https://api.minimax.io/v1"

@@ -1,0 +1,23 @@
+version: 2
+distro_name: starter
+# Only the APIs you need: chat/completions via inference; MCP tools via tool_runtime + connectors below.
+apis:
+- inference
+- tool_runtime
+providers:
+  inference:
+  - provider_id: minimax
+    provider_type: remote::openai
+    config:
+      api_key: ${env.MINIMAX_API_KEY:=}
+      base_url: ${env.MINIMAX_BASE_URL:=https://api.minimax.io/v1}
+  tool_runtime:
+  - provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
+connectors:
+- connector_type: mcp
+  connector_id: github
+  url: ${env.MCP_GITHUB_SSE_URL:=}
+- connector_type: mcp
+  connector_id: openshift
+  url: ${env.MCP_OPENSHIFT_SSE_URL:=}

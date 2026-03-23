@@ -1,0 +1,51 @@
+# Requires LlamaStack Kubernetes Operator CRDs in the cluster, e.g.:
+#   oc apply -f https://github.com/llamastack/llama-stack-k8s-operator/releases/latest/download/operator.yaml
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  name: llamastack
+  namespace: llamastack
+spec:
+  replicas: 1
+  server:
+    distribution:
+      name: starter
+    userConfig:
+      configMapName: llamastack-server-config
+    storage:
+      size: 20Gi
+      mountPath: "/.llama"
+    containerSpec:
+      port: 8321
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "2Gi"
+        limits:
+          cpu: "2"
+          memory: "8Gi"
+      env:
+        - name: SQLITE_STORE_DIR
+          value: "/.llama/distributions/starter"
+        - name: FILES_STORAGE_DIR
+          value: "/.llama/distributions/starter"
+        - name: MINIMAX_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: llamastack-credentials
+              key: minimax-api-key
+        - name: MINIMAX_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: llamastack-mcp-endpoints
+              key: MINIMAX_BASE_URL
+        - name: MCP_GITHUB_SSE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: llamastack-mcp-endpoints
+              key: MCP_GITHUB_SSE_URL
+        - name: MCP_OPENSHIFT_SSE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: llamastack-mcp-endpoints
+              key: MCP_OPENSHIFT_SSE_URL
