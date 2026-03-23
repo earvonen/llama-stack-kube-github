@@ -4,7 +4,7 @@ metadata:
   name: llamastack-mcp-endpoints
   namespace: agentic-demo
 data:
-  # SSE (or streamable HTTP) base URLs for your MCP servers — adjust Service DNS names and ports.
-  MCP_GITHUB_SSE_URL: "http://github-mcp.agentic-demo.svc.cluster.local:8080/sse"
+  # GitHub: in-cluster Service fronting github-mcp-server (streamable HTTP on / — see openshift/github-mcp.yaml).
+  MCP_GITHUB_SSE_URL: "http://github-mcp:8080/"
   MCP_OPENSHIFT_SSE_URL: "http://kubernetes-mcp:8080/sse"
   MINIMAX_BASE_URL: "https://api.minimax.io/v1"

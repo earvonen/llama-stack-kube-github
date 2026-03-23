@@ -1,0 +1,85 @@
+# In-cluster GitHub MCP (HTTP transport): the upstream server expects Authorization: Bearer <PAT>
+# on each request. The nginx container injects the PAT from Secret github-mcp-pat; Llama Stack
+# calls nginx without a GitHub token.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: github-mcp-nginx-template
+  namespace: agentic-demo
+data:
+  default.conf.template: |
+    server {
+      listen 8080;
+      location / {
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}";
+        proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp
+  namespace: agentic-demo
+  labels:
+    app: github-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-mcp
+  template:
+    metadata:
+      labels:
+        app: github-mcp
+    spec:
+      containers:
+        - name: github-mcp-server
+          image: ghcr.io/github/github-mcp-server:latest
+          args: ["http", "--port=8082"]
+          ports:
+            - containerPort: 8082
+              protocol: TCP
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-mcp-pat
+                  key: GITHUB_PERSONAL_ACCESS_TOKEN
+          volumeMounts:
+            - name: nginx-templates
+              mountPath: /etc/nginx/templates
+              readOnly: true
+      volumes:
+        - name: nginx-templates
+          configMap:
+            name: github-mcp-nginx-template
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-mcp
+  namespace: agentic-demo
+  labels:
+    app: github-mcp
+spec:
+  selector:
+    app: github-mcp
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

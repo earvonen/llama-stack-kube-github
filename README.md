@@ -5,7 +5,7 @@ All resources in this overlay use the OpenShift/Kubernetes namespace **`agentic-
 Kubernetes/OpenShift manifests to run [Llama Stack](https://llamastack.github.io/) with:
 
 - **Inference:** [MiniMax](https://www.minimax.io/) via the OpenAI-compatible API (`remote::openai`, provider id `minimax`).
-- **Tools:** two external **MCP** servers (GitHub and OpenShift), configured as connectors. Llama Stack does not deploy those servers; you run them separately and point this stack at their HTTP/SSE endpoints.
+- **Tools:** MCP connectors for **GitHub** and **OpenShift**. This repo includes an optional in-cluster **GitHub MCP** Deployment (official `ghcr.io/github/github-mcp-server` in HTTP mode plus an nginx sidecar that injects a PAT from a **Secret**). You still supply your **OpenShift / Kubernetes MCP** endpoint separately in `configmap-mcp-endpoints.yaml`.
 
 The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-k8s-operator) reconciles a `LlamaStackDistribution` custom resource into a Deployment, Service, PVC, and related objects. This repository adds a Kustomize overlay, stack `config.yaml`, non-secret endpoint tuning, and an OpenShift `Route`.
 
@@ -22,7 +22,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 
 3. **MiniMax API key** from the [MiniMax platform](https://platform.minimax.io/).
 
-4. **MCP servers** for GitHub and OpenShift reachable from the **`agentic-demo`** namespace (ClusterIP Services, or routes outside the cluster). Use the URL shape your server expects (often `…/sse` for SSE; some images use streamable HTTP on a different path).
+4. **GitHub PAT** if you use the bundled GitHub MCP manifests: create or edit Secret `github-mcp-pat` (see below). For the second connector, ensure your OpenShift/Kubernetes MCP Service is reachable from **`agentic-demo`** and that `MCP_OPENSHIFT_SSE_URL` matches its URL (path depends on that server’s transport).
 
 ## Repository layout
 
@@ -30,8 +30,10 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 |------|---------|
 | `openshift/kustomization.yaml` | Kustomize entrypoint: namespace, ConfigMaps, Secret, CR, Route; builds `llamastack-server-config` from `config/config.yaml`. |
 | `openshift/config/config.yaml` | Llama Stack stack config (mounted as `/etc/llama-stack/config.yaml` in the pod). |
-| `openshift/configmap-mcp-endpoints.yaml` | Non-secret values: `MCP_*_SSE_URL`, `MINIMAX_BASE_URL`. |
-| `openshift/secret.yaml` | `minimax-api-key` (replace placeholder before apply, or manage the Secret out of band). |
+| `openshift/github-mcp-secret.yaml` | GitHub PAT for the in-cluster GitHub MCP proxy (`GITHUB_PERSONAL_ACCESS_TOKEN`). |
+| `openshift/github-mcp.yaml` | `Deployment` (github-mcp-server `http` + nginx injecting `Authorization`), `Service` `github-mcp:8080`, nginx `ConfigMap`. |
+| `openshift/configmap-mcp-endpoints.yaml` | Non-secret values: `MCP_*` connector base URLs, `MINIMAX_BASE_URL`. |
+| `openshift/secret.yaml` | MiniMax `minimax-api-key` (replace placeholder before apply, or manage the Secret out of band). |
 | `openshift/llamastackdistribution.yaml` | `LlamaStackDistribution` CR (`starter` image, PVC under `/.llama`, env wiring). |
 | `openshift/route.yaml` | Edge TLS `Route` to Service `llamastack-service:8321`. |
 | `.gitignore` | Ignores local `_ref_*/` scratch directories. |
@@ -41,11 +43,20 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 1. **`openshift/secret.yaml`**  
    Set `stringData.minimax-api-key` to your real key. Prefer not committing secrets: create the Secret with `oc create secret generic llamastack-credentials --from-literal=minimax-api-key='…' -n agentic-demo` and remove `secret.yaml` from `kustomization.yaml` if you use that workflow.
 
-2. **`openshift/configmap-mcp-endpoints.yaml`**  
-   Replace the example URLs with the in-cluster DNS names (or external URLs) and ports for your GitHub and OpenShift MCP deployments. Paths must match each server’s transport (SSE vs other).
+2. **`openshift/github-mcp-secret.yaml`**  
+   Set `stringData.GITHUB_PERSONAL_ACCESS_TOKEN` to a [GitHub PAT](https://github.com/settings/personal-access-tokens/new) with the scopes your toolsets need. The [GitHub MCP Server](https://github.com/github/github-mcp-server) documents classic vs fine-grained tokens and scope filtering.  
+   **Why a Secret:** the container image’s **HTTP** mode expects `Authorization: Bearer …` on each MCP request (unlike **stdio** mode, which uses the `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable inside a single local process). Llama Stack’s connector config only stores a URL, not a GitHub token, so this repo uses an **nginx sidecar** that adds the `Authorization` header using the value from Secret `github-mcp-pat`. Llama Stack calls `http://github-mcp…:8080/` with no GitHub credentials; only workloads that can reach that `Service` can trigger GitHub API usage as that PAT—treat it as sensitive and use `NetworkPolicy` if required.
 
-3. **Resources** (optional)  
+3. **`openshift/configmap-mcp-endpoints.yaml`**  
+   The default `MCP_GITHUB_SSE_URL` targets the bundled `github-mcp` Service (streamable HTTP at `/`). Adjust `MCP_OPENSHIFT_SSE_URL` for your other MCP server.
+
+4. **Resources** (optional)  
    Edit `openshift/llamastackdistribution.yaml` `containerSpec.resources` and `storage.size` for your environment.
+
+### Alternatives (no in-cluster GitHub MCP)
+
+- Remove `github-mcp-secret.yaml` and `github-mcp.yaml` from `kustomization.yaml` and point `MCP_GITHUB_SSE_URL` at your own deployment or at GitHub’s **remote** MCP URL; if the server requires a Bearer token on the wire, you must either supply auth on Llama Stack client calls where the product supports it, or keep a small proxy like the nginx pattern above.
+- For **stdio-only** GitHub MCP (Docker on a laptop), the PAT is typically passed as **`GITHUB_PERSONAL_ACCESS_TOKEN`** on the MCP **server** process— that pattern does not apply to Llama Stack’s HTTP connector unless you add a bridge/proxy.
 
 ## Deploy
 
