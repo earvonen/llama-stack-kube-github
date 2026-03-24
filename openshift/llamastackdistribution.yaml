@@ -28,18 +28,19 @@ spec:
       env:
         - name: SQLITE_STORE_DIR
           value: "/.llama/distributions/starter"
-        - name: FILES_STORAGE_DIR
-          value: "/.llama/distributions/starter"
-        - name: MINIMAX_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: llamastack-credentials
-              key: minimax-api-key
-        - name: MINIMAX_BASE_URL
+        - name: VLLM_URL
           valueFrom:
             configMapKeyRef:
               name: llamastack-mcp-endpoints
-              key: MINIMAX_BASE_URL
+              key: VLLM_URL
+        - name: VLLM_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: llamastack-credentials
+              key: vllm-api-token
+        # Set to "false" if vLLM is HTTPS with a cluster CA the image does not trust.
+        - name: VLLM_TLS_VERIFY
+          value: "true"
         - name: MCP_GITHUB_SSE_URL
           valueFrom:
             configMapKeyRef:

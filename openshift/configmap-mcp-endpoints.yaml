@@ -7,4 +7,6 @@ data:
   # GitHub: in-cluster Service fronting github-mcp-server (streamable HTTP on / — see openshift/github-mcp.yaml).
   MCP_GITHUB_SSE_URL: "http://github-mcp:8080/"
   MCP_OPENSHIFT_SSE_URL: "http://kubernetes-mcp:8080/sse"
-  MINIMAX_BASE_URL: "https://api.minimax.io/v1"
+  # OpenAI-compatible base URL of your vLLM server (must include /v1). Same namespace example:
+  #   http://<vllm-service>.agentic-demo.svc.cluster.local:8000/v1
+  VLLM_URL: "http://vllm-serving.agentic-demo.svc.cluster.local:8000/v1"

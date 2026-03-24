@@ -1,0 +1,125 @@
+{
+  "model": "vllm/MiniMax-M2.5",
+  "messages": [
+    {
+      "role": "user",
+      "content": "List all the repos of earvonen."
+    }
+  ],
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "create_pull_request",
+        "description": "Create a new pull request in a GitHub repository.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Branch to merge into"
+            },
+            "body": {
+              "type": "string",
+              "description": "PR description"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "Create as draft PR"
+            },
+            "head": {
+              "type": "string",
+              "description": "Branch containing changes"
+            },
+            "maintainer_can_modify": {
+              "type": "boolean",
+              "description": "Allow maintainer edits"
+            },
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "title": {
+              "type": "string",
+              "description": "PR title"
+            }
+          },
+          "required": ["owner", "repo", "title", "head", "base"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fork_repository",
+        "description": "Fork a GitHub repository to your account or specified organization",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "organization": {
+              "type": "string",
+              "description": "Organization to fork to"
+            },
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            }
+          },
+          "required": ["owner", "repo"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_repositories",
+        "description": "Find GitHub repositories by name, description, readme, topics, or other metadata. Perfect for discovering projects, finding examples, or locating specific repositories across GitHub.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "minimal_output": {
+              "type": "boolean",
+              "description": "Return minimal repository information (default: true). When false, returns full GitHub API repository objects.",
+              "default": true
+            },
+            "order": {
+              "type": "string",
+              "description": "Sort order",
+              "enum": ["asc", "desc"]
+            },
+            "page": {
+              "type": "number",
+              "description": "Page number for pagination (min 1)",
+              "minimum": 1
+            },
+            "perPage": {
+              "type": "number",
+              "description": "Results per page for pagination (min 1, max 100)",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "query": {
+              "type": "string",
+              "description": "Repository search query. Examples: 'machine learning in:name stars:>1000 language:python', 'topic:react', 'user:facebook'. Supports advanced search syntax for precise filtering."
+            },
+            "sort": {
+              "type": "string",
+              "description": "Sort repositories by field, defaults to best match",
+              "enum": ["stars", "forks", "help-wanted-issues", "updated"]
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    }
+  ]
+}

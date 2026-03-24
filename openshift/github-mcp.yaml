@@ -16,11 +16,27 @@ data:
       location / {
         proxy_pass http://127.0.0.1:8082;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
+        # modelcontextprotocol/go-sdk StreamableHTTPHandler treats connections to 127.0.0.1 as
+        # loopback-bound and rejects non-loopback Host (DNS rebinding mitigation). Forwarding
+        # $host (e.g. github-mcp) triggers 403 "Forbidden: invalid Host header". Use loopback Host
+        # toward the MCP container; preserve the client-visible name for proxies that need it.
+        proxy_set_header Host 127.0.0.1;
+        proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        # github-mcp-server HTTP mode validates Authorization (see pkg/utils/token.go). The Secret
+        # value must be the raw token (ghp_… / github_pat_… / …) — not a second "Bearer " prefix.
         proxy_set_header Authorization "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}";
+        # Strip MCP tuning headers from any client. Invalid X-MCP-Tools values cause 400
+        # "unknown tools specified in WithTools" before the streamable handler runs.
+        proxy_set_header X-MCP-Tools "";
+        proxy_set_header X-MCP-Toolsets "";
+        proxy_set_header X-MCP-Exclude-Tools "";
+        proxy_set_header X-MCP-Readonly "";
+        proxy_set_header X-MCP-Lockdown "";
+        proxy_set_header X-MCP-Insiders "";
+        proxy_set_header X-MCP-Features "";
         proxy_buffering off;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;

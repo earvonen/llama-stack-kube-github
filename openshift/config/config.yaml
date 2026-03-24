@@ -1,19 +1,28 @@
 version: 2
 distro_name: starter
-# Only the APIs you need: chat/completions via inference; MCP tools via tool_runtime + connectors below.
+# Inference: in-cluster vLLM serving your MiniMax (or other) weights — OpenAI-compatible /v1 on vLLM.
 apis:
 - inference
 - tool_runtime
 providers:
   inference:
-  - provider_id: minimax
-    provider_type: remote::openai
+  - provider_id: vllm
+    provider_type: remote::vllm
     config:
-      api_key: ${env.MINIMAX_API_KEY:=}
-      base_url: ${env.MINIMAX_BASE_URL:=https://api.minimax.io/v1}
+      base_url: ${env.VLLM_URL:=}
+      max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
+      # vLLM often ignores this; "fake" is enough when no auth is configured.
+      api_token: ${env.VLLM_API_TOKEN:=fake}
+      network:
+        tls:
+          verify: ${env.VLLM_TLS_VERIFY:=true}
   tool_runtime:
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
+# Connectors populate the Connectors API (GET /v1alpha/connectors, …/tools) for agent/connector_id flows.
+# They do NOT register MCP servers as tool groups. The tool runtime lists tools only from registered tool groups.
+# After deploy, register the same URLs as MCP tool groups (see README “MCP tool groups”); use provider_id
+# model-context-protocol to match the tool_runtime provider below.
 connectors:
 - connector_type: mcp
   connector_id: github
@@ -21,3 +30,11 @@ connectors:
 - connector_type: mcp
   connector_id: openshift
   url: ${env.MCP_OPENSHIFT_SSE_URL:=}
+# Chat/completions "model" must be the stack id: vllm/<vLLM model id>.
+# vLLM's id is whatever /v1/models returns (often --served-model-name or the HF repo id), not necessarily "MiniMax-M2.5".
+# Confirm with: curl -sS "http://<vllm-host>:<port>/v1/models" from a pod or port-forward.
+registered_resources:
+  models:
+  - model_id: MiniMax-M2.5
+    provider_id: vllm
+    model_type: llm
