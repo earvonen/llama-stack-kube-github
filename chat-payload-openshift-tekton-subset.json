@@ -1,0 +1,183 @@
+{
+  "model": "vllm/MiniMax-M2.5",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Find the latest Tekton PipelineRun that has failed in the agentic-demo namespace."
+    }
+  ],
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "namespaces_list",
+        "description": "List all the Kubernetes namespaces in the current cluster",
+        "parameters": {
+          "properties": {},
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "resources_list",
+        "description": "List Kubernetes resources and objects in the current cluster by providing their apiVersion and kind and optionally the namespace and label selector\n(common apiVersion and kind include: v1 Pod, v1 Service, v1 Node, apps/v1 Deployment, networking.k8s.io/v1 Ingress, route.openshift.io/v1 Route) For Tekton: use apiVersion tekton.dev/v1 (or tekton.dev/v1beta1 on older OpenShift Pipelines), kind PipelineRun. Omit namespace to list across all namespaces (if RBAC allows). Use labelSelector when known (e.g. tekton.dev/pipeline). Inspect status.conditions for type Succeeded status False for failures.",
+        "parameters": {
+          "properties": {
+            "apiVersion": {
+              "description": "apiVersion of the resources (examples of valid apiVersion are: v1, apps/v1, networking.k8s.io/v1)",
+              "type": "string"
+            },
+            "kind": {
+              "description": "kind of the resources (examples of valid kind are: Pod, Service, Deployment, Ingress)",
+              "type": "string"
+            },
+            "labelSelector": {
+              "description": "Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label",
+              "pattern": "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Optional Namespace to retrieve the namespaced resources from (ignored in case of cluster scoped resources). If not provided, will list resources from all namespaces",
+              "type": "string"
+            }
+          },
+          "required": [
+            "apiVersion",
+            "kind"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "resources_get",
+        "description": "Get a Kubernetes resource in the current cluster by providing its apiVersion, kind, optionally the namespace, and its name\n(common apiVersion and kind include: v1 Pod, v1 Service, v1 Node, apps/v1 Deployment, networking.k8s.io/v1 Ingress, route.openshift.io/v1 Route) For Git repo correlation: PipelineRun metadata.annotations often include Pipelines-as-Code keys (pipelinesascode.tekton.dev/url, repository, git-url, sha) or spec.params may hold repo/URL. If unclear, fetch Pipeline (spec.pipelineRef) or TaskRuns in the same namespace.",
+        "parameters": {
+          "properties": {
+            "apiVersion": {
+              "description": "apiVersion of the resource (examples of valid apiVersion are: v1, apps/v1, networking.k8s.io/v1)",
+              "type": "string"
+            },
+            "kind": {
+              "description": "kind of the resource (examples of valid kind are: Pod, Service, Deployment, Ingress)",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the resource",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Optional Namespace to retrieve the namespaced resource from (ignored in case of cluster scoped resources). If not provided, will get resource from configured namespace",
+              "type": "string"
+            }
+          },
+          "required": [
+            "apiVersion",
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "events_list",
+        "description": "List all the Kubernetes events in the current cluster from all namespaces",
+        "parameters": {
+          "properties": {
+            "namespace": {
+              "description": "Optional Namespace to retrieve the events from. If not provided, will list events from all namespaces",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pods_list",
+        "description": "List all the Kubernetes pods in the current cluster from all namespaces With labelSelector tekton.dev/pipelineRun=<pipelinerun-name> to find Task pods for a run, then pods_log.",
+        "parameters": {
+          "properties": {
+            "labelSelector": {
+              "description": "Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label",
+              "pattern": "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pods_list_in_namespace",
+        "description": "List all the Kubernetes pods in the specified namespace in the current cluster",
+        "parameters": {
+          "properties": {
+            "labelSelector": {
+              "description": "Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label",
+              "pattern": "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace to list pods from",
+              "type": "string"
+            }
+          },
+          "required": [
+            "namespace"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pods_log",
+        "description": "Get the logs of a Kubernetes Pod in the current or provided namespace with the provided name For Tekton Task pod container logs; set namespace from the PipelineRun. Use previous=true for terminated container logs. Increase tail for more lines.",
+        "parameters": {
+          "properties": {
+            "container": {
+              "description": "Name of the Pod container to get the logs from (Optional)",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name of the Pod to get the logs from",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Namespace to get the Pod logs from",
+              "type": "string"
+            },
+            "previous": {
+              "description": "Return previous terminated container logs (Optional)",
+              "type": "boolean"
+            },
+            "tail": {
+              "default": 100,
+              "description": "Number of lines to retrieve from the end of the logs (Optional, default: 100)",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ]
+}
