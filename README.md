@@ -22,7 +22,9 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 
 3. **vLLM** reachable from namespace **`agentic-demo`** (Service URL + port; OpenAI base URL must end with **`/v1`**). Optionally a bearer token if your vLLM is protected.
 
-4. **GitHub PAT** if you use the bundled GitHub MCP manifests: create or edit Secret `github-mcp-pat` (see below). For the second connector, ensure your OpenShift/Kubernetes MCP Service is reachable from **`agentic-demo`** and that `MCP_OPENSHIFT_SSE_URL` matches its URL (path depends on that server’s transport).
+4. **GitHub PAT** if you use the bundled GitHub MCP manifests: create or edit Secret `github-mcp-pat` (see below).
+
+5. **Kubernetes / OpenShift MCP** — `openshift/kubernetes-mcp.yaml` deploys **`quay.io/mcp-servers/kubernetes-mcp-server`** with a dedicated **`ServiceAccount`** and a namespace-scoped **read-only** `Role` (`get`, `list`, `watch`). If MCP tools need **create/update/delete** or **cluster-scoped** reads (`Node`, etc.), edit that `Role` (or switch to a `ClusterRole` + `ClusterRoleBinding` with care). Ensure `MCP_OPENSHIFT_SSE_URL` in `configmap-mcp-endpoints.yaml` matches the server’s transport (**`/sse`** for this image).
 
 ## Repository layout
 
@@ -32,6 +34,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
 | `openshift/config/config.yaml` | Llama Stack stack config (mounted as `/etc/llama-stack/config.yaml` in the pod). |
 | `openshift/github-mcp-secret.yaml` | GitHub PAT for the in-cluster GitHub MCP proxy (`GITHUB_PERSONAL_ACCESS_TOKEN`). |
 | `openshift/github-mcp.yaml` | `Deployment` (github-mcp-server `http` + nginx injecting `Authorization`), `Service` `github-mcp:8080`, nginx `ConfigMap`. |
+| `openshift/kubernetes-mcp.yaml` | `Deployment` + `Service` **`kubernetes-mcp:8080`**, `ServiceAccount`, namespace **`Role`/`RoleBinding`** (read-only MCP defaults). SSE MCP URL path **`/sse`**. |
 | `openshift/configmap-mcp-endpoints.yaml` | Non-secret values: `MCP_*` connector base URLs, **`VLLM_URL`** (vLLM OpenAI base, e.g. `http://my-vllm:8000/v1`). |
 | `openshift/secret.yaml` | Optional vLLM bearer token key **`vllm-api-token`** (many in-cluster servers accept `fake`). |
 | `openshift/llamastackdistribution.yaml` | `LlamaStackDistribution` CR (`starter` image, PVC under `/.llama`, env wiring). |
@@ -50,7 +53,7 @@ The [Llama Stack Kubernetes Operator](https://github.com/llamastack/llama-stack-
    **Why a Secret:** the container image’s **HTTP** mode expects `Authorization: Bearer …` on each MCP request (unlike **stdio** mode, which uses the `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable inside a single local process). Llama Stack’s connector config only stores a URL, not a GitHub token, so this repo uses an **nginx sidecar** that adds the `Authorization` header using the value from Secret `github-mcp-pat`. Llama Stack calls `http://github-mcp…:8080/` with no GitHub credentials; only workloads that can reach that `Service` can trigger GitHub API usage as that PAT—treat it as sensitive and use `NetworkPolicy` if required.
 
 3. **`openshift/configmap-mcp-endpoints.yaml`**  
-   Set **`VLLM_URL`** to your vLLM OpenAI base (cluster DNS, include **`/v1`**). The default `MCP_GITHUB_SSE_URL` targets the bundled `github-mcp` Service (streamable HTTP at `/`). Adjust `MCP_OPENSHIFT_SSE_URL` for your other MCP server.
+   Set **`VLLM_URL`** to your vLLM OpenAI base (cluster DNS, include **`/v1`**). Defaults: **`MCP_GITHUB_SSE_URL`** → bundled **`github-mcp`** (streamable HTTP at **`/`**); **`MCP_OPENSHIFT_SSE_URL`** → bundled **`kubernetes-mcp`** (SSE at **`/sse`**). Point either URL elsewhere if you use an external MCP server. Edit **`openshift/kubernetes-mcp.yaml`** `Role` rules if MCP tools need writes or cluster-scoped access.
 
 4. **Resources** (optional)  
    Edit `openshift/llamastackdistribution.yaml` `containerSpec.resources` and `storage.size` for your environment.
@@ -144,6 +147,8 @@ llama-stack-client toolgroups register mcp-openshift --provider-id model-context
   oc port-forward -n agentic-demo svc/llamastack-service 8321:http
   llama-stack-client --endpoint http://127.0.0.1:8321 toolgroups register mcp-github \
     --provider-id model-context-protocol --mcp-endpoint "http://github-mcp:8080/"
+  llama-stack-client --endpoint http://127.0.0.1:8321 toolgroups register mcp-openshift \
+    --provider-id model-context-protocol --mcp-endpoint "http://kubernetes-mcp:8080/sse"
   ```
 
 - **`curl` against the Route:** add **`-k`** (insecure) or **`--cacert /path/to/cluster-ca.pem`** if you export the ingress/router CA.
@@ -175,6 +180,7 @@ Query parameter name is **`toolgroup_id`** (matches `ListToolsRequest` in the se
 ```bash
 curl -sS "https://${HOST}/v1/tools" -H "Authorization: Bearer none"
 curl -sS "https://${HOST}/v1/tools?toolgroup_id=mcp-github" -H "Authorization: Bearer none"
+curl -sS "https://${HOST}/v1/tools?toolgroup_id=mcp-openshift" -H "Authorization: Bearer none"
 ```
 
 **`toolgroups list` vs `GET /v1/tools`:** The CLI **`toolgroups list`** (or **`GET /v1/toolgroups`**) only shows **registered tool groups** (id, provider, MCP URL)—it does **not** call GitHub MCP. **`GET /v1/tools`** triggers a **live MCP `list_tools`** from the **Llama Stack pod** to the endpoint you registered. An **empty `data` array** usually means that call failed or returned no tools (errors are often only in **server logs**, not in the JSON). Check **`oc logs`** on the llama-stack pod, **`NetworkPolicy`** egress to `github-mcp`, and from inside the pod: **`curl -sS http://github-mcp:8080/`** (or your MCP URL). A wrong **`toolgroup_id`** would normally yield **404** / tool group not found, not an empty list.
@@ -208,6 +214,7 @@ A successful **`invoke`** response (or a clear MCP/GitHub error from bad args) p
 
 ## OpenShift notes
 
+- **Kubernetes MCP image:** `quay.io/mcp-servers/kubernetes-mcp-server` must be pullable from your cluster (mirror or pull secrets if needed). The pod uses the **`kubernetes-mcp`** `ServiceAccount` for API access; no kubeconfig Secret is required for the default layout.
 - **Image pulls:** If your cluster cannot pull `docker.io/llamastack/distribution-starter`, mirror the image or add pull secrets and adjust the operator or distribution image settings per your org’s policy.
 - **Security context / SCC:** If the pod fails to start with permission errors, work with your cluster admin on the appropriate SCC and ServiceAccount (the operator creates a per-CR ServiceAccount by default).
 - **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts and `pod.spec.securityContext.fsGroup` set to **`1000940000`**, matching the **`agentic-demo`** namespace UID annotation `1000940000/10000` (first number = usable `fsGroup` / group for volume permissions). If your namespace uses a different range, run `oc get namespace agentic-demo -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}{"\n"}'` and set `fsGroup` in `github-mcp.yaml` to that range’s base (or a value allowed by `openshift.io/sa.scc.supplemental-groups`). If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image.

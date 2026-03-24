@@ -7,6 +7,7 @@ resources:
   - namespace.yaml
   - github-mcp-secret.yaml
   - github-mcp.yaml
+  - kubernetes-mcp.yaml
   - configmap-mcp-endpoints.yaml
   - secret.yaml
   - llamastackdistribution.yaml
