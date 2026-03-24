@@ -40,7 +40,7 @@ spec:
               key: vllm-api-token
         # Set to "false" if vLLM is HTTPS with a cluster CA the image does not trust.
         - name: VLLM_TLS_VERIFY
-          value: "true"
+          value: "false"
         - name: MCP_GITHUB_SSE_URL
           valueFrom:
             configMapKeyRef:
