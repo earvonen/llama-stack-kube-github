@@ -81,6 +81,76 @@
     {
       "type": "function",
       "function": {
+        "name": "issue_write",
+        "description": "Create a new or update an existing issue in a GitHub repository.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "assignees": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Usernames to assign to this issue"
+            },
+            "body": {
+              "type": "string",
+              "description": "Issue body content"
+            },
+            "duplicate_of": {
+              "type": "number",
+              "description": "Issue number that this issue is a duplicate of. Only used when state_reason is 'duplicate'."
+            },
+            "issue_number": {
+              "type": "number",
+              "description": "Issue number to update"
+            },
+            "labels": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Labels to apply to this issue"
+            },
+            "method": {
+              "type": "string",
+              "description": "Write operation to perform on a single issue.\nOptions are:\n- 'create' - creates a new issue.\n- 'update' - updates an existing issue.\n",
+              "enum": ["create", "update"]
+            },
+            "milestone": {
+              "type": "number",
+              "description": "Milestone number"
+            },
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "state": {
+              "type": "string",
+              "description": "New state",
+              "enum": ["open", "closed"]
+            },
+            "state_reason": {
+              "type": "string",
+              "description": "Reason for the state change. Ignored unless state is changed.",
+              "enum": ["completed", "not_planned", "duplicate"]
+            },
+            "title": {
+              "type": "string",
+              "description": "Issue title"
+            },
+            "type": {
+              "type": "string",
+              "description": "Issue type if the repo uses org issue types; use list_issue_types if needed. Omit if unsupported."
+            }
+          },
+          "required": ["method", "owner", "repo"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "search_repositories",
         "description": "Find GitHub repositories by name, description, readme, topics, or other metadata. Perfect for discovering projects, finding examples, or locating specific repositories across GitHub.",
         "parameters": {
