@@ -10,7 +10,7 @@ spec:
   server:
     distribution:
       # Using image skips the operator's built-in distribution name map (see README if you prefer name: starter).
-      image: docker.io/llamastack/distribution-starter:latest
+      image: docker.io/llamastack/distribution-starter:0.6.0
     userConfig:
       configMapName: llamastack-server-config
     storage:
