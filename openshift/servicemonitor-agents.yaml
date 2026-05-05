@@ -1,0 +1,83 @@
+# User Workload Monitoring for agent workloads. Each Service must carry label app=<name>
+# and expose Prometheus metrics on port name `http` at path `/metrics`.
+# Deployment/Service names should match the app label for kube alerts in prometheusrule-agentic-demo.yaml.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: developer-agent
+  labels:
+    app.kubernetes.io/part-of: agents
+spec:
+  selector:
+    matchLabels:
+      app: developer-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fixer-agent
+  labels:
+    app.kubernetes.io/part-of: agents
+spec:
+  selector:
+    matchLabels:
+      app: fixer-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: review-agent
+  labels:
+    app.kubernetes.io/part-of: agents
+spec:
+  selector:
+    matchLabels:
+      app: review-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rummager-agent
+  labels:
+    app.kubernetes.io/part-of: agents
+spec:
+  selector:
+    matchLabels:
+      app: rummager-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: scribe-agent
+  labels:
+    app.kubernetes.io/part-of: agents
+spec:
+  selector:
+    matchLabels:
+      app: scribe-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http

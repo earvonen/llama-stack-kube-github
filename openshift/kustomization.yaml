@@ -9,8 +9,12 @@ resources:
   - github-mcp.yaml
   - kubernetes-mcp.yaml
   - configmap-mcp-endpoints.yaml
+  - configmap-observability.yaml
   - secret.yaml
   - llamastackdistribution.yaml
+  - servicemonitor-llamastack.yaml
+  - servicemonitor-agents.yaml
+  - prometheusrule-agentic-demo.yaml
   - route.yaml
   - llama-stack-ui.yaml
   - route-ui.yaml

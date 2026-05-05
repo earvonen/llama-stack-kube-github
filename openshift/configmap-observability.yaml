@@ -1,0 +1,31 @@
+# Reference queries and rollout notes for Console (Logs → Log explorer, Metrics) — not consumed by operators.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-reference
+  labels:
+    app.kubernetes.io/part-of: llama-stack
+data:
+  logql-namespace.txt: |
+    # OpenShift Logging / Loki — paste into Log explorer where supported, or use equivalent filters.
+    # All containers in the demo namespace:
+    {kubernetes_namespace_name="agentic-demo"}
+    # Llama Stack server container only (adjust container name if different):
+    {kubernetes_namespace_name="agentic-demo", kubernetes_pod_name=~"llamastack-.*"}
+    # Five agents use label app=developer-agent | fixer-agent | review-agent | rummager-agent | scribe-agent.
+    # Filter by pod label in Loki if your pipeline records it (label names vary), e.g. kubernetes_pod_labels_app:
+    # {kubernetes_namespace_name="agentic-demo", kubernetes_pod_labels_app="developer-agent"}
+    # Errors (log level depends on your app):
+    {kubernetes_namespace_name="agentic-demo"} |= "error" or "ERROR" or "Error"
+  metrics-notes.txt: |
+    Inventory (scrape + consoles):
+    1) Llama Stack: ServiceMonitor `llamastack` scrapes `llamastack-service` port `http` path `/metrics` when the image exposes Prometheus.
+    2) OpenShift AI / model serving: use OpenShift AI dashboard and "Monitoring your AI systems" in RHOAI 3.3 docs — do not duplicate inference SLOs in custom rules unless required.
+    3) Agents: `app` label values developer-agent, fixer-agent, review-agent, rummager-agent, scribe-agent — ServiceMonitors in openshift/servicemonitor-agents.yaml (port `http`, path `/metrics`). Namespace `agentic-demo` is labeled for user monitoring via namespace.yaml.
+    Verify scrape: Observe → Targets (user workload Prometheus).
+  tracing-notes.txt: |
+    Optional end-to-end tracing (agent → Llama Stack → MCP → model):
+    - Install/configure Red Hat build of OpenTelemetry Operator and cluster distributed tracing (Tempo) per cluster admin.
+    - OpenShift AI 3.3: follow "Managing observability" for platform tracing integration (Technology Preview status may apply — check current docs).
+    - Instrument agents with OTel SDK or OpenTelemetry Instrumentation CR (language auto-instrumentation) and export OTLP to the cluster collector endpoint.
+    - Use consistent resource attributes (service.name, deployment.environment) — avoid putting secrets or tokens in span attributes.

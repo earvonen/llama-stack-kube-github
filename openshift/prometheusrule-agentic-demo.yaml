@@ -1,0 +1,48 @@
+# Alerts for workloads in agentic-demo using kube-state-metrics and container metrics (OpenShift user workload / platform scrape).
+# Tune thresholds and deployment names to match your cluster's kube-state label schema.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agentic-demo-workload-rules
+  labels:
+    app.kubernetes.io/part-of: llama-stack
+spec:
+  groups:
+    - name: agentic-demo.deployments
+      rules:
+        - alert: LlamaStackDeploymentReplicasMismatch
+          annotations:
+            summary: Llama Stack Deployment does not have desired replicas available.
+            description: >-
+              Namespace agentic-demo deployment llamastack spec replicas do not match available replicas for 15m.
+          expr: |
+            kube_deployment_spec_replicas{namespace="agentic-demo",deployment="llamastack"}
+              !=
+            kube_deployment_status_replicas_available{namespace="agentic-demo",deployment="llamastack"}
+          for: 15m
+          labels:
+            severity: warning
+        - alert: AgentDeploymentReplicasMismatch
+          annotations:
+            summary: An agent Deployment does not have desired replicas available.
+            description: >-
+              Namespace agentic-demo — one of developer-agent, fixer-agent, review-agent, rummager-agent, scribe-agent has spec replicas != available for 15m.
+          expr: |
+            kube_deployment_spec_replicas{namespace="agentic-demo",deployment=~"developer-agent|fixer-agent|review-agent|rummager-agent|scribe-agent"}
+              !=
+            kube_deployment_status_replicas_available{namespace="agentic-demo",deployment=~"developer-agent|fixer-agent|review-agent|rummager-agent|scribe-agent"}
+          for: 15m
+          labels:
+            severity: warning
+    - name: agentic-demo.pods
+      rules:
+        - alert: FrequentPodRestarts
+          annotations:
+            summary: Pod in agentic-demo is restarting frequently.
+            description: >-
+              Container restarts exceeded 3 in 30 minutes — inspect logs and events in namespace agentic-demo.
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="agentic-demo"}[30m]) > 3
+          for: 5m
+          labels:
+            severity: warning

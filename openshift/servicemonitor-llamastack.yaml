@@ -1,0 +1,21 @@
+# User Workload Monitoring: scrape Llama Stack HTTP port for Prometheus text exposition.
+# The operator creates Service `llamastack-service` with port name `http` (see README). Metrics path is
+# typically /metrics on the same port as the API when the distribution enables Prometheus export.
+# If targets show "down" or 404, confirm with: oc run curl --rm -it --restart=Never --image=curlimages/curl -n agentic-demo -- \
+#   curl -sS "http://llamastack-service.agentic-demo.svc:8321/metrics" | head
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: llamastack
+  labels:
+    app.kubernetes.io/part-of: llama-stack
+spec:
+  selector:
+    matchLabels:
+      app: llama-stack
+      llamastack.io/instance: llamastack
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scheme: http
