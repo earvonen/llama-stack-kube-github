@@ -51,6 +51,7 @@ The [Red Hat OpenShift AI Llama Stack Operator](https://docs.redhat.com/en/docum
 | `openshift/secret.yaml` | Optional vLLM bearer token key **`vllm-api-token`** (many in-cluster servers accept `fake`). |
 | `openshift/llamastackdistribution.yaml` | `LlamaStackDistribution` CR (RHOAI `odh-llama-stack-core-rhel9:v3.4`, PVC under `/.llama`, env wiring). |
 | `openshift/route.yaml` | Edge TLS `Route` to Service `llamastack-service` (API port 8321). |
+| `deploy-openshift.sh` | Deploy overlay; auto-sets **github-mcp** `fsGroup` from the namespace UID range. |
 | `call-llama-with-github.sh` | End-to-end GitHub MCP chat demo (wrapper for `scripts/call_llama_with_github.py`). |
 | `call-llama-with-kubernetes.sh` | End-to-end Kubernetes/OpenShift MCP chat demo (wrapper for `scripts/call_llama_with_kubernetes.py`). |
 | `scripts/call_llama_with_github.py` | Multi-turn `/v1/chat/completions` + in-cluster GitHub MCP `tools/call` via `oc exec`. |
@@ -83,7 +84,15 @@ The [Red Hat OpenShift AI Llama Stack Operator](https://docs.redhat.com/en/docum
 
 ## Deploy
 
-From the repository root, `-k` is the path to the directory that contains `kustomization.yaml` (here, the `openshift/` folder — not an OpenShift-specific flag).
+From the repository root, use **`deploy-openshift.sh`** so **github-mcp** gets the correct `fsGroup` for your namespace’s OpenShift UID range (required after creating or recreating **`agentic-demo`**):
+
+```bash
+./deploy-openshift.sh
+```
+
+The script creates the namespace if needed, reads `openshift.io/sa.scc.uid-range`, patches `fsGroup` on render, and applies the full overlay. Override the namespace with **`OPENSHIFT_NAMESPACE`** if needed.
+
+Raw Kustomize (no `fsGroup` patch — **github-mcp** may fail on a fresh namespace):
 
 ```bash
 oc apply -k openshift
@@ -95,7 +104,7 @@ Equivalent preview:
 oc kustomize openshift
 ```
 
-If you are already inside `openshift/`, use `oc apply -k .` instead.
+If you are already inside `openshift/`, use `KUSTOMIZE_DIR=. ./deploy-openshift.sh` from the repo root, or `oc apply -k .` for an unpatch apply.
 
 The operator creates a Service named **`llamastack-service`** (for CR `metadata.name: llamastack`). The Route targets port name **`http`**.
 
@@ -238,7 +247,7 @@ Progress and tool invocations are printed on **stderr**; JSON chat responses on 
 - **Kubernetes MCP image:** `quay.io/mcp-servers/kubernetes-mcp-server` must be pullable from your cluster (mirror or pull secrets if needed). The pod uses the **`kubernetes-mcp`** `ServiceAccount` for API access; no kubeconfig Secret is required for the default layout. The image supports **SSE** (`/sse`, used for Llama Stack connector/tool-group URLs) and **streamable HTTP** (`/mcp`, used by **`call-llama-with-kubernetes.sh`**).
 - **Image pulls:** This overlay uses **`registry.redhat.io/rhoai/odh-llama-stack-core-rhel9:v3.4`** (RHOAI 3.4 / Llama Stack 0.7.x). The cluster global pull secret must include `registry.redhat.io`. Upstream **`docker.io/llamastack/distribution-starter`** may require separate Docker Hub credentials if you switch back to that image.
 - **Security context / SCC:** If the pod fails to start with permission errors, work with your cluster admin on the appropriate SCC and ServiceAccount (the operator creates a per-CR ServiceAccount by default).
-- **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts and `pod.spec.securityContext.fsGroup` set to **`1001040000`**, matching the **`agentic-demo`** namespace UID annotation `1001040000/10000` (first number = usable `fsGroup` / group for volume permissions). If your namespace uses a different range, run `oc get namespace agentic-demo -o jsonpath='{.metadata.annotations.openshift\.io/sa\.scc\.uid-range}{"\n"}'` and set `fsGroup` in `github-mcp.yaml` to that range’s base (or a value allowed by `openshift.io/sa.scc.supplemental-groups`). If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image.
+- **GitHub MCP nginx sidecar:** Uses `nginxinc/nginx-unprivileged` plus `emptyDir` mounts and `pod.spec.securityContext.fsGroup` matched to the namespace UID range (so the random pod UID can write nginx cache/conf dirs). Use **`./deploy-openshift.sh`** to set this automatically; plain **`oc apply -k`** leaves the placeholder in `github-mcp.yaml`, which breaks if the namespace was recreated. If `docker.io/nginxinc/nginx-unprivileged` is blocked, mirror it or swap the image.
 - **TLS:** The sample Route uses **edge** termination. For re-encrypt or passthrough, change `openshift/route.yaml` accordingly.
 - **Config updates:** Changing `openshift/config/config.yaml` and re-applying updates the generated ConfigMap; the operator’s ConfigMap hash annotation should roll the Deployment. If not, delete the pod to force a restart.
 
