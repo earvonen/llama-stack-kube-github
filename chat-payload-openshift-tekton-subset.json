@@ -1,9 +1,9 @@
 {
-  "model": "vllm/MiniMax-M2.5",
+  "model": "vllm/MiniMax-M2.7",
   "messages": [
     {
       "role": "user",
-      "content": "Find the latest Tekton PipelineRun that has failed in the agentic-demo namespace."
+      "content": "List all the pods in the agentic-demo namespace."
     }
   ],
   "tool_choice": "auto",

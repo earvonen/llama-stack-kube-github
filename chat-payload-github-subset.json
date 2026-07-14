@@ -1,9 +1,9 @@
 {
-  "model": "vllm/MiniMax-M2.5",
+  "model": "vllm/MiniMax-M2.7",
   "messages": [
     {
       "role": "user",
-      "content": "List all the repos of earvonen."
+      "content": "List all the repos of <github-username>."
     }
   ],
   "tool_choice": "auto",

@@ -15,7 +15,7 @@ metadata:
   namespace: agentic-demo
 rules:
   # Read-only within agentic-demo; widen verbs/resources if your MCP tools require writes or cluster scope.
-  - apiGroups: ["", "apps", "batch", "networking.k8s.io", "rbac.authorization.k8s.io", "route.openshift.io"]
+  - apiGroups: ["", "apps", "batch", "networking.k8s.io", "rbac.authorization.k8s.io", "route.openshift.io", "tekton.dev"]
     resources: ["*"]
     verbs: ["get", "list", "watch"]
 ---

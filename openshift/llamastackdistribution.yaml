@@ -1,5 +1,5 @@
-# Requires LlamaStack Kubernetes Operator CRDs in the cluster, e.g.:
-#   oc apply -f https://github.com/llamastack/llama-stack-k8s-operator/releases/latest/download/operator.yaml
+# Requires the RHOAI-managed Llama Stack Operator (DataScienceCluster
+# spec.components.llamastackoperator.managementState: Managed).
 apiVersion: llamastack.io/v1alpha1
 kind: LlamaStackDistribution
 metadata:
@@ -9,8 +9,8 @@ spec:
   replicas: 1
   server:
     distribution:
-      # Using image skips the operator's built-in distribution name map (see README if you prefer name: starter).
-      image: docker.io/llamastack/distribution-starter:0.6.0
+      # RHOAI 3.4 image (Llama Stack 0.7.x). Cluster pulls registry.redhat.io via the global pull secret.
+      image: registry.redhat.io/rhoai/odh-llama-stack-core-rhel9:v3.4
     userConfig:
       configMapName: llamastack-server-config
     storage:

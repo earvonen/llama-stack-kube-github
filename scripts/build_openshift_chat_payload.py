@@ -56,7 +56,7 @@ def main() -> None:
         }
 
     payload = {
-        "model": "vllm/MiniMax-M2.5",
+        "model": "vllm/MiniMax-M2.7",
         "messages": [
             {
                 "role": "user",
